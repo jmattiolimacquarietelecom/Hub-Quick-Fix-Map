@@ -96,108 +96,47 @@
   });
 
   var input = document.getElementById("photon-search");
-  var awesomplete = new Awesomplete(input, { minChars: 2, maxItems: 5 });
-
   var lastSearchMarker = null;
-  var latestSuggestions = [];
 
-  function insideSydney(lat, lng) {
-    return (lat >= sydneySW[0] && lat <= sydneyNE[0] && lng >= sydneySW[1] && lng <= sydneyNE[1]);
-  }
-
-  async function fetchSuggestions(query) {
-    let bbox = `${sydneySW[1]},${sydneySW[0]},${sydneyNE[1]},${sydneyNE[0]}`;
-    let photonRes = await fetch(
-      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=en&bbox=${bbox}`
-    );
-    let photonData = await photonRes.json();
-    let photonResults = photonData.features.map(f => ({
-      label: f.properties.name + (f.properties.city ? ", " + f.properties.city : ""),
-      value: JSON.stringify({ lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], name: f.properties.name })
-    }));
-
-    if (photonResults.length > 0) return photonResults;
-
-    let viewbox = `${sydneySW[1]},${sydneyNE[0]},${sydneyNE[1]},${sydneySW[0]}`;
-    let nomRes = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=au&q=${encodeURIComponent(query)}&viewbox=${viewbox}&bounded=1`
-    );
-    let nomData = await nomRes.json();
-    let nomResults = nomData.map(f => ({
-      label: f.display_name,
-      value: JSON.stringify({ lat: parseFloat(f.lat), lng: parseFloat(f.lon), name: f.display_name })
-    }));
-
-    return nomResults;
-  }
-
-
-  input.addEventListener("input", async function() {
-    var query = input.value;
+  async function searchLocation(query) {
     if (query.length < 2) return;
 
-    latestSuggestions = await fetchSuggestions(query);
-    awesomplete.list = latestSuggestions;
-  });
+    let bbox = `${sydneySW[1]},${sydneySW[0]},${sydneyNE[1]},${sydneyNE[0]}`;
+    let photonRes = await fetch(
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=en&bbox=${bbox}`
+    );
+    let photonData = await photonRes.json();
 
-  function selectFeature(feature) {
-    var lat = feature.lat;
-    var lng = feature.lng;
+    let feature = null;
+
+    if (photonData.features.length > 0) {
+      feature = photonData.features[0];
+      var lat = feature.geometry.coordinates[1];
+      var lng = feature.geometry.coordinates[0];
+    } else {
+      let viewbox = `${sydneySW[1]},${sydneyNE[0]},${sydneyNE[1]},${sydneySW[0]}`;
+      let nomRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=au&q=${encodeURIComponent(query)}&viewbox=${viewbox}&bounded=1`
+      );
+      let nomData = await nomRes.json();
+      if (nomData.length === 0) return;
+      lat = parseFloat(nomData[0].lat);
+      lng = parseFloat(nomData[0].lon);
+    }
 
     if (lastSearchMarker) map.removeLayer(lastSearchMarker);
 
-    lastSearchMarker = L.marker([lat, lng]).addTo(map)
-      .bindPopup(feature.name)
-      .openPopup();
-
+    lastSearchMarker = L.marker([lat, lng]).addTo(map);
     map.setView([lat, lng], 14);
   }
 
-var input = document.getElementById("photon-search");
-var awesomplete = new Awesomplete(input, { minChars: 2, maxItems: 5 });
-
-var lastSearchMarker = null;
-var latestSuggestions = [];
-
-input.addEventListener("input", async function() {
-  var query = input.value;
-  if (query.length < 2) return;
-
-  const currentQuery = query;
-
-  latestSuggestions = await fetchSuggestions(query);
-
-  if (input.value === currentQuery) {
-    awesomplete.list = latestSuggestions;
-  }
-});
-
-
-function selectFeature(featureObj) {
-  var lat = featureObj.lat;
-  var lng = featureObj.lng;
-
-  if (lastSearchMarker) map.removeLayer(lastSearchMarker);
-
-  lastSearchMarker = L.marker([lat, lng]).addTo(map)
-    .bindPopup(featureObj.name)
-    .openPopup();
-
-  map.setView([lat, lng], 14);
-}
-
-input.addEventListener("awesomplete-selectcomplete", function(e) {
-  selectFeature(JSON.parse(e.text.value));
-});
-
-input.addEventListener("keydown", function(e) {
-  if (e.key === "Enter" && latestSuggestions.length > 0) {
-    e.preventDefault();
-    selectFeature(JSON.parse(latestSuggestions[0].value));
-    input.blur();
-  }
-});
-
+  input.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      searchLocation(input.value);
+      input.blur();
+    }
+  });
 </script>
 </body>
 </html>
