@@ -5,11 +5,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Leaflet CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  <!-- Awesomplete -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/awesomplete/1.1.5/awesomplete.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/awesomplete/1.1.5/awesomplete.min.js"></script>
 
@@ -109,7 +107,6 @@
 
   async function fetchSuggestions(query) {
     let bbox = `${sydneySW[1]},${sydneySW[0]},${sydneyNE[1]},${sydneyNE[0]}`;
-    // Photon
     let photonRes = await fetch(
       `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=en&bbox=${bbox}`
     );
@@ -121,7 +118,6 @@
 
     if (photonResults.length > 0) return photonResults;
 
-    // Nominatim fallback
     let viewbox = `${sydneySW[1]},${sydneyNE[0]},${sydneyNE[1]},${sydneySW[0]}`;
     let nomRes = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=au&q=${encodeURIComponent(query)}&viewbox=${viewbox}&bounded=1`
@@ -167,12 +163,10 @@ input.addEventListener("input", async function() {
   var query = input.value;
   if (query.length < 2) return;
 
-  // Capture the current query
   const currentQuery = query;
 
   latestSuggestions = await fetchSuggestions(query);
 
-  // Only update if the input hasn't changed while fetching
   if (input.value === currentQuery) {
     awesomplete.list = latestSuggestions;
   }
@@ -196,12 +190,11 @@ input.addEventListener("awesomplete-selectcomplete", function(e) {
   selectFeature(JSON.parse(e.text.value));
 });
 
-// Enter key selects first suggestion
 input.addEventListener("keydown", function(e) {
   if (e.key === "Enter" && latestSuggestions.length > 0) {
     e.preventDefault();
     selectFeature(JSON.parse(latestSuggestions[0].value));
-    input.blur(); // closes dropdown
+    input.blur();
   }
 });
 
