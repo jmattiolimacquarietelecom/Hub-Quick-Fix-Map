@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sydney Team Map (Photon + Nominatim Autocomplete)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Awesomplete -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/awesomplete/1.1.5/awesomplete.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/awesomplete/1.1.5/awesomplete.min.js"></script>
+
+  <style>
+    #map { height: 100vh; width: 100%; }
+    .leaflet-image-layer {
+      border-radius: 50% !important;
+      opacity: 0.6;
+    }
+
+    .search-container {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      width: 320px;
+    }
+
+    .search-container input {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .awesomplete {
+      width: 100%;
+    }
+    .awesomplete ul {
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 0 0 4px 4px;
+      margin-top: 2px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+<div class="search-container">
+  <input type="text" id="photon-search" placeholder="Search in Sydney..." />
+</div>
+<div id="map"></div>
+
+<script>
+  var sydneySW = [-34.2, 150.5];
+  var sydneyNE = [-33.5, 151.5];
+
+  var map = L.map('map', {
+    center: [-33.8688, 151.2093],
+    zoom: 12,
+    minZoom: 11,
+    maxBounds: [sydneySW, sydneyNE],
+    maxBoundsViscosity: 1.0
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  var radiusKm = 2;
+
+  var team = [
+    {name: "Ash", coords: [-33.789191, 150.827785], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20124528.png"},
+    {name: "Tom S", coords: [-33.820739, 151.222030], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-08-30%20193042.png"},
+    {name: "Jacob", coords: [-33.922672, 151.210470], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-08-30%20192024.png"},
+    {name: "Izzy", coords: [-33.747871, 151.274709], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20175506.png"},
+    {name: "Liam", coords: [-33.725713, 151.126529], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20175948.png"},
+    {name: "Sam G", coords: [-33.981778, 151.127386], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20112707.png"}
+  ];
+
+  team.forEach(member => {
+    var circle = L.circle(member.coords, {
+      radius: radiusKm * 1000,
+      color: "green",
+      weight: 2,
+      fillOpacity: 0.02
+    }).addTo(map).bindPopup(member.name);
+
+    var bounds = circle.getBounds();
+    L.imageOverlay(member.imageUrl, bounds, {
+      opacity: 0.4,
+      className: "leaflet-image-layer"
+    }).addTo(map);
+  });
+
+  var input = document.getElementById("photon-search");
+  var awesomplete = new Awesomplete(input, { minChars: 2, maxItems: 5 });
+
+  var lastSearchMarker = null;
+  var latestSuggestions = [];
+
+  function insideSydney(lat, lng) {
+    return (lat >= sydneySW[0] && lat <= sydneyNE[0] && lng >= sydneySW[1] && lng <= sydneyNE[1]);
+  }
+
+  async function fetchSuggestions(query) {
+    let bbox = `${sydneySW[1]},${sydneySW[0]},${sydneyNE[1]},${sydneyNE[0]}`;
+    // Photon
+    let photonRes = await fetch(
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5&lang=en&bbox=${bbox}`
+    );
+    let photonData = await photonRes.json();
+    let photonResults = photonData.features.map(f => ({
+      label: f.properties.name + (f.properties.city ? ", " + f.properties.city : ""),
+      value: JSON.stringify({ lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], name: f.properties.name })
+    }));
+
+    if (photonResults.length > 0) return photonResults;
+
+    // Nominatim fallback
+    let viewbox = `${sydneySW[1]},${sydneyNE[0]},${sydneyNE[1]},${sydneySW[0]}`;
+    let nomRes = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=au&q=${encodeURIComponent(query)}&viewbox=${viewbox}&bounded=1`
+    );
+    let nomData = await nomRes.json();
+    let nomResults = nomData.map(f => ({
+      label: f.display_name,
+      value: JSON.stringify({ lat: parseFloat(f.lat), lng: parseFloat(f.lon), name: f.display_name })
+    }));
+
+    return nomResults;
+  }
+
+
+  input.addEventListener("input", async function() {
+    var query = input.value;
+    if (query.length < 2) return;
+
+    latestSuggestions = await fetchSuggestions(query);
+    awesomplete.list = latestSuggestions;
+  });
+
+  function selectFeature(feature) {
+    var lat = feature.lat;
+    var lng = feature.lng;
+
+    if (lastSearchMarker) map.removeLayer(lastSearchMarker);
+
+    lastSearchMarker = L.marker([lat, lng]).addTo(map)
+      .bindPopup(feature.name)
+      .openPopup();
+
+    map.setView([lat, lng], 14);
+  }
+
+var input = document.getElementById("photon-search");
+var awesomplete = new Awesomplete(input, { minChars: 2, maxItems: 5 });
+
+var lastSearchMarker = null;
+var latestSuggestions = [];
+
+input.addEventListener("input", async function() {
+  var query = input.value;
+  if (query.length < 2) return;
+
+  // Capture the current query
+  const currentQuery = query;
+
+  latestSuggestions = await fetchSuggestions(query);
+
+  // Only update if the input hasn't changed while fetching
+  if (input.value === currentQuery) {
+    awesomplete.list = latestSuggestions;
+  }
+});
+
+
+function selectFeature(featureObj) {
+  var lat = featureObj.lat;
+  var lng = featureObj.lng;
+
+  if (lastSearchMarker) map.removeLayer(lastSearchMarker);
+
+  lastSearchMarker = L.marker([lat, lng]).addTo(map)
+    .bindPopup(featureObj.name)
+    .openPopup();
+
+  map.setView([lat, lng], 14);
+}
+
+input.addEventListener("awesomplete-selectcomplete", function(e) {
+  selectFeature(JSON.parse(e.text.value));
+});
+
+// Enter key selects first suggestion
+input.addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && latestSuggestions.length > 0) {
+    e.preventDefault();
+    selectFeature(JSON.parse(latestSuggestions[0].value));
+    input.blur(); // closes dropdown
+  }
+});
+
+</script>
+</body>
+</html>
