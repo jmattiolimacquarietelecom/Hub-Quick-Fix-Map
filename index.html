@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Sydney Team Map (Photon + Nominatim Autocomplete)</title>
+  <title>Sydney Team Map (TomTom Tiles + TomTom Search)</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/awesomplete/1.1.5/awesomplete.min.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/awesomplete/1.1.5/awesomplete.min.js"></script>
-
   <style>
     #map { height: 100vh; width: 100%; }
+
     .leaflet-image-layer {
       border-radius: 50% !important;
       opacity: 0.6;
@@ -34,109 +33,98 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
-
-    .awesomplete {
-      width: 100%;
-    }
-    .awesomplete ul {
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 0 0 4px 4px;
-      margin-top: 2px;
-      width: 100%;
-    }
   </style>
 </head>
 <body>
-<div class="search-container">
-  <input type="text" id="photon-search" placeholder="Search in Sydney..." />
-</div>
-<div id="map"></div>
+  <div class="search-container">
+    <input type="text" id="tomtom-search" placeholder="Search in Sydney..." />
+  </div>
+  <div id="map"></div>
 
-<script>
-  var sydneySW = [-34.2, 150.5];
-  var sydneyNE = [-33.5, 151.5];
+  <script>
+    const TOMTOM_API_KEY = "FdZ6cbddw7aTnhMnAxQhFdr23H5QFaAA";
 
-  var map = L.map('map', {
-    center: [-33.8688, 151.2093],
-    zoom: 12,
-    minZoom: 11,
-    maxBounds: [sydneySW, sydneyNE],
-    maxBoundsViscosity: 1.0
-  });
+    const sydneyCenter = [-33.8688, 151.2093];
+    const sydneySW = [-34.2, 150.5];
+    const sydneyNE = [-33.5, 151.5];
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
+    const map = L.map('map', {
+      center: sydneyCenter,
+      zoom: 12,
+      minZoom: 11,
+      maxBounds: [sydneySW, sydneyNE],
+      maxBoundsViscosity: 1.0
+    });
+
+  L.tileLayer('https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=FdZ6cbddw7aTnhMnAxQhFdr23H5QFaAA', {
+    attribution: '&copy; <a href="https://www.tomtom.com" target="_blank">TomTom</a> & contributors',
+    tileSize: 256
   }).addTo(map);
 
-  var radiusKm = 2;
 
-  var team = [
-    {name: "Ash", coords: [-33.789191, 150.827785], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20124528.png"},
-    {name: "Tom S", coords: [-33.820739, 151.222030], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-08-30%20193042.png"},
-    {name: "Jacob", coords: [-33.922672, 151.210470], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-08-30%20192024.png"},
-    {name: "Izzy", coords: [-33.747871, 151.274709], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20175506.png"},
-    {name: "Liam", coords: [-33.725713, 151.126529], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20175948.png"},
-    {name: "Sam G", coords: [-33.981778, 151.127386], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20112707.png"}
-  ];
+    const team = [
+      {name: "Ash", coords: [-33.789191, 150.827785], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20124528.png"},
+      {name: "Tom S", coords: [-33.820739, 151.222030], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-08-30%20193042.png"},
+      {name: "Jacob", coords: [-33.922672, 151.210470], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-08-30%20192024.png"},
+      {name: "Izzy", coords: [-33.747871, 151.274709], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20175506.png"},
+      {name: "Liam", coords: [-33.725713, 151.126529], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20175948.png"},
+      {name: "Sam G", coords: [-33.981778, 151.127386], imageUrl: "https://raw.githubusercontent.com/jmattiolimacquarietelecom/team-map-assets/main/Screenshot%202025-09-01%20112707.png"}
+    ];
 
-  team.forEach(member => {
-    var circle = L.circle(member.coords, {
-      radius: radiusKm * 1000,
-      color: "green",
-      weight: 2,
-      fillOpacity: 0.02
-    }).addTo(map).bindPopup(member.name);
+    const radiusKm = 2;
 
-    var bounds = circle.getBounds();
-    L.imageOverlay(member.imageUrl, bounds, {
-      opacity: 0.4,
-      className: "leaflet-image-layer"
-    }).addTo(map);
-  });
+    team.forEach(member => {
+      const circle = L.circle(member.coords, {
+        radius: radiusKm * 1000,
+        color: "green",
+        weight: 2,
+        fillOpacity: 0.02
+      }).addTo(map).bindPopup(member.name);
 
-  var input = document.getElementById("photon-search");
-  var lastSearchMarker = null;
+      const bounds = circle.getBounds();
+      L.imageOverlay(member.imageUrl, bounds, {
+        opacity: 0.4,
+        className: "leaflet-image-layer"
+      }).addTo(map);
+    });
 
-  async function searchLocation(query) {
-    if (query.length < 2) return;
+    const input = document.getElementById("tomtom-search");
+    let lastSearchMarker = null;
 
-    let bbox = `${sydneySW[1]},${sydneySW[0]},${sydneyNE[1]},${sydneyNE[0]}`;
-    let photonRes = await fetch(
-      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=en&bbox=${bbox}`
-    );
-    let photonData = await photonRes.json();
+    async function searchWithTomTom(query) {
+      if (query.length < 2) return;
 
-    let feature = null;
+      const url = `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(query)}.json?key=${TOMTOM_API_KEY}&limit=1&lat=${sydneyCenter[0]}&lon=${sydneyCenter[1]}&countrySet=AU`;
 
-    if (photonData.features.length > 0) {
-      feature = photonData.features[0];
-      var lat = feature.geometry.coordinates[1];
-      var lng = feature.geometry.coordinates[0];
-    } else {
-      let viewbox = `${sydneySW[1]},${sydneyNE[0]},${sydneyNE[1]},${sydneySW[0]}`;
-      let nomRes = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=au&q=${encodeURIComponent(query)}&viewbox=${viewbox}&bounded=1`
-      );
-      let nomData = await nomRes.json();
-      if (nomData.length === 0) return;
-      lat = parseFloat(nomData[0].lat);
-      lng = parseFloat(nomData[0].lon);
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.results && data.results.length > 0) {
+          const result = data.results[0];
+          const lat = result.position.lat;
+          const lon = result.position.lon;
+
+          if (lastSearchMarker) map.removeLayer(lastSearchMarker);
+
+          lastSearchMarker = L.marker([lat, lon]).addTo(map).bindPopup(result.address.freeformAddress).openPopup();
+          map.setView([lat, lon], 14);
+        } else {
+          alert("No results found.");
+        }
+      } catch (err) {
+        console.error("TomTom search error:", err);
+        alert("Search failed.");
+      }
     }
 
-    if (lastSearchMarker) map.removeLayer(lastSearchMarker);
-
-    lastSearchMarker = L.marker([lat, lng]).addTo(map);
-    map.setView([lat, lng], 14);
-  }
-
-  input.addEventListener("keydown", function(e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      searchLocation(input.value);
-      input.blur();
-    }
-  });
-</script>
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        searchWithTomTom(input.value);
+        input.blur();
+      }
+    });
+  </script>
 </body>
 </html>
